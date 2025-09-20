@@ -713,7 +713,7 @@
             const paymentStatus = document.getElementById('paymentStatus');
             const paymentSuccessAnimation = document.getElementById('paymentSuccessAnimation');
             let attempts = 0;
-            const maxAttempts = 60; // ~5 minutes
+            const maxAttempts = 60; // ~9 minutes with exponential backoff (capped at 10s)
             const baseDelay = 2000; // Start with 2s delay
 
             // Enhanced timer with progress bar

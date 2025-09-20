@@ -30,7 +30,7 @@ if (!$GATEWAY || $GATEWAY["active"] != 1) {
 $licenseKey = $GATEWAY["license_key"] ?? "123456";
 // $result = validatelicense($licenseKey);
 // if (!$result["valid"]) {
-//     jsonresponse($result);
+//     jsonResponse($result);
 // }
 
 // GEÇİCİ STATİK LİSANS KONTROLÜ
@@ -206,38 +206,38 @@ class DhruCache {
 $rawBody = file_get_contents("php://input");
 $maybeJson = json_decode($rawBody, true);
 if (is_array($maybeJson)) {
-    jsonresponse(["is_success" => false, "code" => 301, "message" => "Please use verification.php for API verification"]);
+    jsonResponse(["is_success" => false, "code" => 301, "message" => "Please use verification.php for API verification"]);
 }
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["verification_result"])) {
     // Rate Limiting kontrolü
     $clientIP = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
     if (!checkRateLimit($clientIP, 50, 3600)) { // 50 istek/saat
-        jsonresponse(["is_success" => false, "code" => 429, "message" => "Rate limit exceeded. Please try again later."]);
+        jsonResponse(["is_success" => false, "code" => 429, "message" => "Rate limit exceeded. Please try again later."]);
     }
     
     // CSRF Token kontrolü
     if (!isset($_POST["csrf_token"]) || !validateCSRFToken($_POST["csrf_token"])) {
-        jsonresponse(["is_success" => false, "code" => 403, "message" => "CSRF token validation failed"]);
+        jsonResponse(["is_success" => false, "code" => 403, "message" => "CSRF token validation failed"]);
     }
     
     $verificationRaw = html_entity_decode($_POST["verification_result"], ENT_QUOTES, "UTF-8");
     $verificationData = json_decode($verificationRaw, true);
     if (json_last_error() !== JSON_ERROR_NONE || !is_array($verificationData)) {
-        jsonresponse(["is_success" => false, "code" => 400, "message" => "Invalid verification data"]);
+        jsonResponse(["is_success" => false, "code" => 400, "message" => "Invalid verification data"]);
     }
     if (empty($verificationData["is_success"])) {
-        jsonresponse(["is_success" => false, "code" => 400, "message" => $verificationData["message"] ?? "Payment verification failed"]);
+        jsonResponse(["is_success" => false, "code" => 400, "message" => $verificationData["message"] ?? "Payment verification failed"]);
     }
     $invoiceId = intval($_POST["invoice_id"]);
     $orderDetails = getinvoicedetails($invoiceId);
     if (!$orderDetails) {
-        jsonresponse(["is_success" => false, "code" => 404, "message" => "Order not found"]);
+        jsonResponse(["is_success" => false, "code" => 404, "message" => "Order not found"]);
     }
     if ($orderDetails["status"] !== "Unpaid") {
-        jsonresponse(["is_success" => false, "code" => 405, "message" => "Order already paid"]);
+        jsonResponse(["is_success" => false, "code" => 405, "message" => "Order already paid"]);
     }
     if (checkTransID($verificationData["transaction"]["id"])) {
-        jsonresponse(["is_success" => false, "code" => 406, "message" => "Duplicate transaction"]);
+        jsonResponse(["is_success" => false, "code" => 406, "message" => "Duplicate transaction"]);
     }
     $conversionRate = $verificationData["conversion_rate"] ?? $GATEWAY["conversion_rate"] ?? 130;
     $paymentAmount = floatval($verificationData["transaction"]["amount"]);
@@ -246,19 +246,19 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["verification_result"]
     if ($result) {
         handlesuccessresponse($paymentAmount, $amountBDT, $conversionRate, $invoiceId);
     } else {
-        jsonresponse(["is_success" => false, "code" => 500, "message" => "Payment recording failed"]);
+        jsonResponse(["is_success" => false, "code" => 500, "message" => "Payment recording failed"]);
     }
 }
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["amount"]) && isset($_POST["invoiceid"])) {
     // Rate Limiting kontrolü
     $clientIP = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
     if (!checkRateLimit($clientIP, 30, 3600)) { // 30 istek/saat
-        jsonresponse(["is_success" => false, "code" => 429, "message" => "Rate limit exceeded. Please try again later."]);
+        jsonResponse(["is_success" => false, "code" => 429, "message" => "Rate limit exceeded. Please try again later."]);
     }
     
     // CSRF Token kontrolü
     if (!isset($_POST["csrf_token"]) || !validateCSRFToken($_POST["csrf_token"])) {
-        jsonresponse(["is_success" => false, "code" => 403, "message" => "CSRF token validation failed"]);
+        jsonResponse(["is_success" => false, "code" => 403, "message" => "CSRF token validation failed"]);
     }
     
     $amount = floatval($_POST["amount"]);
@@ -268,15 +268,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["amount"]) && isset($_
     $paymentNote = $_POST["payment_note"] ?? generatepaymentnote();
     $orderDetails = getinvoicedetails($invoiceId);
     if (!$orderDetails) {
-        jsonresponse(["is_success" => false, "code" => 404, "message" => "Invoice not found"]);
+        jsonResponse(["is_success" => false, "code" => 404, "message" => "Invoice not found"]);
     }
     if ($orderDetails["status"] !== "Unpaid") {
-        jsonresponse(["is_success" => false, "code" => 405, "message" => "Invoice already paid"]);
+        jsonResponse(["is_success" => false, "code" => 405, "message" => "Invoice already paid"]);
     }
     include ROOTDIR . "/templates/payment_page.php";
     exit;
 }
-jsonresponse(["is_success" => false, "code" => 400, "message" => "Invalid request"]);
+jsonResponse(["is_success" => false, "code" => 400, "message" => "Invalid request"]);
 function jsonResponse($data)
 {
     header("Content-Type: application/json");
@@ -379,7 +379,7 @@ function handleSuccessResponse($paymentAmount, $amountBDT, $conversionRate, $inv
     if (strpos($_SERVER["HTTP_ACCEPT"], "text/html") !== false) {
         header("Location: " . $redirectUrl);
     } else {
-        jsonresponse($response);
+        jsonResponse($response);
     }
 }
 function generatePaymentNote()
