@@ -19,6 +19,7 @@ define("ROOTDIR", __DIR__);
 include ROOTDIR . "/comm.php";
 require ROOTDIR . "/includes/fun.inc.php";
 include ROOTDIR . "/includes/gateway.fun.php";
+require_once ROOTDIR . "/includes/binance_verifier.php";
 $GATEWAY = loadGatewayModule("vexopayment");
 if (!$GATEWAY || $GATEWAY["active"] != 1) {
     echo json_encode(["is_success" => false, "code" => 403, "message" => "Module Not Activated"]);
@@ -84,46 +85,4 @@ if (!$verification["success"]) {
     exit;
 }
 echo json_encode(["is_success" => true, "code" => 200, "message" => "Verification succeeded", "transaction" => $verification["transaction"], "conversion_rate" => $GATEWAY["conversion_rate"] ?? 130]);
-function verifyBinancePayment($apiKey, $secretKey, $expectedAmount, $paymentNote)
-{
-    $baseUrl = "https://api.binance.com";
-    $endpoint = "/sapi/v1/pay/transactions";
-    $timestamp = round(microtime(true) * 1000);
-    $params = ["timestamp" => $timestamp];
-    $queryString = http_build_query($params);
-    $signature = hash_hmac("sha256", $queryString, $secretKey);
-    $url = $baseUrl . $endpoint . "?" . $queryString . "&signature=" . $signature;
-    $ch = curl_init();
-    curl_setopt_array($ch, [CURLOPT_URL => $url, CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => ["X-MBX-APIKEY: " . $apiKey], CURLOPT_TIMEOUT => 10, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2]);
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlError = curl_error($ch);
-    curl_close($ch);
-    if ($response === false || $httpCode !== 200) {
-        error_log("Binance API error: HTTP " . $httpCode . " - Error: " . $curlError . " - Response: " . $response);
-        return ["success" => false, "error" => "HTTP_ERROR", "code" => $httpCode, "details" => $curlError];
-    }
-    $data = json_decode($response, true);
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        error_log("Binance API JSON parse error: " . json_last_error_msg());
-        return ["success" => false, "error" => "JSON_PARSE_ERROR"];
-    }
-    if (empty($data["success"]) || !isset($data["data"]) || !is_array($data["data"])) {
-        error_log("Binance API invalid response: " . json_encode($data));
-        return ["success" => false, "error" => "API_ERROR"];
-    }
-    $delta = 0;
-    foreach ($data["data"] as $transaction) {
-        if (!(isset($transaction["amount"]) && isset($transaction["note"]) && isset($transaction["currency"]))) {
-        } else {
-            $txAmount = (float) number_format((float) $transaction["amount"], 6, ".", "");
-            $expected = (float) number_format((float) $expectedAmount, 6, ".", "");
-            if (abs($txAmount - $expected) < $delta && strcasecmp($transaction["note"], $paymentNote) === 0 && strtoupper($transaction["currency"]) === "USDT") {
-                return ["success" => true, "transaction" => ["id" => $transaction["transactionId"], "amount" => $transaction["amount"], "currency" => $transaction["currency"], "timestamp" => $transaction["transactionTime"] ?? NULL]];
-            }
-        }
-    }
-    return ["success" => false, "error" => "PAYMENT_NOT_FOUND"];
-}
-
 ?>
